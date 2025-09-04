@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8"/>
+  <title>SwiftCMA Report</title>
+  <style>
+    @page { size: A4; margin: 1in; }
+    body { font-family: Arial, sans-serif; color:#111; }
+    .muted { color:#666; }
+    .accent { color:<%= branding.accent %>; }
+    h1 { font-size:24px; }
+    table { width:100%; border-collapse:collapse; }
+    th,td { border-bottom:1px solid #ddd; padding:6px; font-size:12px; }
+  </style>
+</head>
+<body>
+  <h1>Comparative Market Analysis</h1>
+  <p class="muted">Subject: <%= subject.address %> · Date: <%= new Date().toLocaleDateString() %></p>
+  <h2 class="accent">Comps</h2>
+  <table>
+    <tr><th>Address</th><th>Sold Price</th><th>Beds</th><th>Baths</th><th>SqFt</th><th>DOM</th></tr>
+    <% comps.forEach(c=>{ %>
+    <tr>
+      <td><%= c.address %></td>
+      <td><%= c.sold_price ? ('$'+c.sold_price.toLocaleString()):'' %></td>
+      <td><%= c.beds %></td>
+      <td><%= c.baths %></td>
+      <td><%= c.sqft %></td>
+      <td><%= c.dom %></td>
+    </tr>
+    <% }) %>
+  </table>
+  <h2 class="accent">Market Snapshot</h2>
+  <p>Avg Sold: $<%= marketStats.avgSoldPrice %> · Avg $/SqFt: $<%= marketStats.avgPricePerSqft %> · Avg DOM: <%= marketStats.avgDOM %></p>
+  <p>Suggested List Range: $<%= marketStats.suggestedListLow %> – $<%= marketStats.suggestedListHigh %></p>
+  <footer class="muted">SwiftCMA — For discussion purposes only.</footer>
+</body>
+</html>
