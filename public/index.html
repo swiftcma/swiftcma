@@ -1,23 +1,137 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>SwiftCMA MVP</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 900px; margin: 40px auto; padding: 0 16px; color: #111; }
+    h1 { margin: 0 0 8px; }
+    .muted { color: #666; }
+    .card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin: 16px 0; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    th, td { padding: 8px; border-bottom: 1px solid #e5e7eb; font-size: 12px; text-align: left; }
+    input[type="text"] { width: 100%; padding: 8px; }
+    .btn { padding: 8px 14px; border: 1px solid #111; border-radius: 6px; background: white; cursor: pointer; }
+    .btn.primary { background: #0ea5e9; border-color: #0ea5e9; color: white; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .hidden { display: none; }
+    select { width: 100%; padding: 6px; }
+  </style>
 </head>
 <body>
   <h1>SwiftCMA MVP</h1>
-  <p>Upload CSV → Map → Preview → PDF</p>
-  <form id="form">
-    <input type="file" id="csv"/>
-    <button>Upload</button>
-  </form>
-  <div id="out"></div>
+  <p class="muted">Upload CSV → Map → Subject → Generate PDF</p>
+
+  <div class="card">
+    <h3>1) Upload CSV</h3>
+    <input id="csvFile" type="file" accept=".csv"/>
+    <button class="btn" onclick="uploadCSV()">Upload</button>
+    <div id="uploadResult" class="muted"></div>
+  </div>
+
+  <div id="mappingCard" class="card hidden">
+    <h3>2) Map Columns</h3>
+    <div class="muted">Confirm or correct mappings:</div>
+    <table id="mapTable"><thead><tr><th>CSV Header</th><th>Maps To</th></tr></thead><tbody></tbody></table>
+    <button class="btn" onclick="saveMapping()">Save Mapping</button>
+  </div>
+
+  <div id="subjectCard" class="card hidden">
+    <h3>3) Subject Details</h3>
+    <div class="grid2">
+      <div><label>Address</label><input id="subject_address" type="text"/></div>
+      <div><label>Beds</label><input id="subject_beds" type="text"/></div>
+      <div><label>Baths</label><input id="subject_baths" type="text"/></div>
+      <div><label>SqFt</label><input id="subject_sqft" type="text"/></div>
+    </div>
+    <div class="grid2">
+      <div><label>Agent Name</label><input id="agent_name" type="text" placeholder="Your Name"/></div>
+      <div><label>Agent Phone</label><input id="agent_phone" type="text" placeholder="(xxx) xxx-xxxx"/></div>
+      <div><label>Logo URL</label><input id="logo_url" type="text" placeholder="https://..."/></div>
+      <div><label>Accent Color</label><input id="accent" type="text" placeholder="#0ea5e9"/></div>
+    </div>
+    <button class="btn primary" onclick="generateReport()">Generate Report</button>
+    <div id="genResult" class="muted"></div>
+  </div>
+
   <script>
-    document.getElementById('form').onsubmit = async e=>{
-      e.preventDefault();
-      const f=document.getElementById('csv').files[0];
-      const fd=new FormData();fd.append('file',f);
-      const r=await fetch('/api/uploads',{method:'POST',body:fd});
-      const j=await r.json();document.getElementById('out').innerText=JSON.stringify(j,null,2);
+    let uploadId = null;
+    let mapping = null;
+    let headers = [];
+
+    async function uploadCSV() {
+      const f = document.getElementById('csvFile').files[0];
+      if (!f) { alert('Choose a CSV first'); return; }
+      const form = new FormData();
+      form.append('file', f);
+      const r = await fetch('/api/uploads', { method: 'POST', body: form });
+      const data = await r.json();
+      if (data.error) {
+        document.getElementById('uploadResult').textContent =
+          'Error: ' + data.error + (data.detail ? ' — ' + data.detail : '');
+        console.log('Server detail:', data);
+        return;
+      }
+      uploadId = data.uploadId;
+      headers = data.headers;
+      mapping = data.suggestedMap || {};
+      document.getElementById('uploadResult').textContent =
+        'Uploaded. ' + data.rowCount + ' rows, ' + headers.length + ' columns detected.';
+      renderMappingTable();
+      document.getElementById('mappingCard').classList.remove('hidden');
+    }
+
+    function renderMappingTable() {
+      const tbody = document.querySelector('#mapTable tbody');
+      tbody.innerHTML = '';
+      const canonical = ['', 'address','list_price','sold_price','beds','baths','sqft','dom','status','photo_url','year_built','lot_sqft','distance_mi'];
+      headers.forEach(h => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${h}</td>
+          <td>
+            <select class="mapInput" data-hdr="${h}">
+              ${canonical.map(c => `<option value="${c}" ${(mapping[h]===c)?'selected':''}>${c || '(ignore)'}</option>`).join('')}
+            </select>
+          </td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function saveMapping() {
+      const selects = document.querySelectorAll('.mapInput');
+      mapping = {};
+      selects.forEach(s => mapping[s.dataset.hdr] = s.value || null);
+      await fetch('/api/mappings', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ uploadId, mapJson: mapping })
+      });
+      document.getElementById('subjectCard').classList.remove('hidden');
+      window.scrollTo(0, document.body.scrollHeight);
+    }
+
+    async function generateReport() {
+      const subject = {
+        address: document.getElementById('subject_address').value,
+        beds: document.getElementById('subject_beds').value,
+        baths: document.getElementById('subject_baths').value,
+        sqft: document.getElementById('subject_sqft').value,
+        agentName: document.getElementById('agent_name').value,
+        agentPhone: document.getElementById('agent_phone').value,
+        logoUrl: document.getElementById('logo_url').value,
+        accent: document.getElementById('accent').value
+      };
+      const r = await fetch('/api/reports', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ uploadId, mapping, subject })
+      });
+      const data = await r.json();
+      if (data.error) { alert('Report error: ' + data.error + (data.detail? ' — ' + data.detail : '')); return; }
+      document.getElementById('genResult').innerHTML =
+        `Done. <a href="${data.shareUrl}" target="_blank">Open share link</a> · ` +
+        `<a href="${data.pdfPath}" target="_blank">Download PDF</a>`;
+      window.scrollTo(0, document.body.scrollHeight);
     }
   </script>
 </body>
