@@ -288,7 +288,7 @@ app.post('/api/reports', async (req, res) => {
     };
 
     // Render HTML via EJS template
-    const tplPath = path.join(__dirname, 'src', 'templates', 'report.ejs');
+    const tplPath = path.join(__dirname, 'src/templates/report.ejs');
     const html = await ejs.renderFile(tplPath, reportData, { async: true });
 
     // Save shareable HTML
