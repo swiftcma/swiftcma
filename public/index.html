@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>SwiftCMA MVP</title>
+</head>
+<body>
+  <h1>SwiftCMA MVP</h1>
+  <p>Upload CSV → Map → Preview → PDF</p>
+  <form id="form">
+    <input type="file" id="csv"/>
+    <button>Upload</button>
+  </form>
+  <div id="out"></div>
+  <script>
+    document.getElementById('form').onsubmit = async e=>{
+      e.preventDefault();
+      const f=document.getElementById('csv').files[0];
+      const fd=new FormData();fd.append('file',f);
+      const r=await fetch('/api/uploads',{method:'POST',body:fd});
+      const j=await r.json();document.getElementById('out').innerText=JSON.stringify(j,null,2);
+    }
+  </script>
+</body>
+</html>
